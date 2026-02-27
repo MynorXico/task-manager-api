@@ -23,14 +23,13 @@ export function initializeSchema(db: Database.Database): void {
       updated_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
     );
 
-    CREATE INDEX IF NOT EXISTS idx_tasks_user_id ON tasks(user_id);
+    CREATE INDEX IF NOT EXISTS idx_tasks_user_id      ON tasks(user_id);
+    CREATE INDEX IF NOT EXISTS idx_tasks_user_created  ON tasks(user_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_tasks_user_status   ON tasks(user_id, status);
+    CREATE INDEX IF NOT EXISTS idx_tasks_user_due_date ON tasks(user_id, due_date);
 
-    CREATE TRIGGER IF NOT EXISTS tasks_updated_at
-    AFTER UPDATE ON tasks
-    FOR EACH ROW
-    BEGIN
-      UPDATE tasks SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
-      WHERE id = OLD.id;
-    END;
+    -- updated_at is managed by the application layer; drop the trigger if it
+    -- exists from a prior schema version to avoid the stale-RETURNING bug.
+    DROP TRIGGER IF EXISTS tasks_updated_at;
   `);
 }

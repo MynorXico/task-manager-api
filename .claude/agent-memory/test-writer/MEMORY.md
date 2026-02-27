@@ -73,8 +73,36 @@ Do not mock bcrypt — it would break integration-level login tests.
 - Login 400 (missing fields): `{ error: "email and password are required" }`
 - Login/Register 400 (password >72 bytes): `{ error: "Password must not exceed 72 characters" }`
 
+## Tasks Route Response Shapes (confirmed)
+- POST /tasks 201: `{ data: Task }` — all 9 fields: id, user_id, title, description, status, priority, due_date, created_at, updated_at
+- POST /tasks 400 (missing title): `{ error: "title is required" }`
+- POST /tasks 400 (whitespace title): same — `.trim()` makes it falsy
+- POST /tasks 400 (bad enum): `{ error: "Invalid status. Must be one of: todo, in_progress, done" }`
+- GET /tasks 200: `{ data: Task[], meta: { total, limit, offset } }` — default limit=50, offset=0
+- GET /tasks/:id 200: `{ data: Task }`
+- GET /tasks/:id 404: `{ error: "Task not found" }` — for non-existent OR other-user's task (IDOR fix)
+- PATCH /tasks/:id 200: `{ data: Task }` (RETURNING clause — no follow-up SELECT)
+- PATCH /tasks/:id 400 (empty body): `{ error: "No fields to update" }`
+- PATCH /tasks/:id 400 (whitespace title): `{ error: "title cannot be empty" }`
+- DELETE /tasks/:id 200: `{ data: { deleted: true } }`
+- All 404 errors for non-integer IDs — `parseTaskId` returns null for "abc", "1.5", "0x7B"
+
+## Tasks Tests — Key Lessons
+- Mount both authRouter(db) and tasksRouter(db) in the test app to use real JWT tokens
+- Tasks body limit is '16kb' (auth was '2kb') — use '16kb' in buildApp for tasks tests
+- SQLite ':memory:' tasks with identical `created_at` second have non-deterministic ORDER BY — avoid asserting which specific task is "first" when tasks are inserted rapidly; instead assert the set of results
+- `include_overdue=true` + any filter uses UNION in SQL — test verifies tasks from both branches appear
+- For `updated_at` change test: sleep 1100ms so SQLite's strftime('now') advances to a new second
+- IDOR fix: `WHERE id = ? AND user_id = ?` means other user's task returns 404, not 403
+- Helper pattern for token: `createUserAndLogin(app, email)` — register + login, return token string
+- Decode JWT userId from token with: `JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString('utf8')).userId`
+
 ## File Locations
 - Tests: `/home/mynorxico/task-manager-api/tests/auth.test.ts`
+- Tests: `/home/mynorxico/task-manager-api/tests/tasks.test.ts`
 - Vitest config: `/home/mynorxico/task-manager-api/vitest.config.mjs`
 - Auth router: `/home/mynorxico/task-manager-api/src/routes/auth.ts`
+- Tasks router: `/home/mynorxico/task-manager-api/src/routes/tasks.ts`
 - Schema init: `/home/mynorxico/task-manager-api/src/db/schema.ts`
+- Types: `/home/mynorxico/task-manager-api/src/types/index.ts`
+- Auth middleware: `/home/mynorxico/task-manager-api/src/middleware/auth.ts`

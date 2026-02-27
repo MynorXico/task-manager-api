@@ -41,9 +41,17 @@
 - Conflicts (duplicate email): 409
 - No try-catch in routes currently—relied on prepared statement exceptions
 
+## PATCH /tasks/:id Critical Issues Found
+
+1. **COALESCE prevents nullable field clearing**: COALESCE(?, col) makes it impossible to set description/due_date to NULL (same as omitting field)—contradicts PATCH semantics
+2. **updated_at double-write creates stale RETURNING**: Both UPDATE statement and AFTER trigger set updated_at; RETURNING fires before trigger, so returned value differs from stored value
+3. **ID parameter type coercion**: id is string cast, bound to INTEGER PRIMARY KEY. SQLite coerces "123abc" → 123, "0x7B" → 0, silently returning wrong rows instead of 404
+4. **Empty title allowed in PATCH**: POST rejects empty/whitespace-only titles, but PATCH allows them (trim() produces empty string, COALESCE passes it)
+5. **No body validation**: Empty PATCH {} or non-JSON triggers all-null COALESCE; still UPDATEs updated_at wastefully
+
 ## Next Review Checkpoints
 
-- Verify schema indexes are added for common query paths
-- Confirm auto-update triggers work for `updated_at` field
-- Check that AuthRequest interface is single-sourced from types/index.ts
-- Look for any new module-level side effects in db initialization
+- Verify PATCH refactored to use dynamic SET clause with 'field' in body checks
+- Confirm all ID params validated as positive integers before DB queries
+- Check updated_at strategy: either remove trigger or remove explicit SET (not both)
+- Validate request Content-Type in body-accepting routes
