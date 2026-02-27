@@ -1,0 +1,24 @@
+node_modules/
+dist/
+.git/
+.github/
+.claude/
+
+# Test files — not needed in the image
+tests/
+docs/
+
+# Database files
+*.db
+*.db-wal
+*.db-shm
+
+# Environment files (secrets must be injected at runtime)
+.env
+.env.local
+
+# Logs
+*.log
+
+# OS / editor
+.DS_Store
